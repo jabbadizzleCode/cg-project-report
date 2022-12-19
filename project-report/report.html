@@ -1,0 +1,627 @@
+<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Transitional//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd'>
+<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Computer Graphics - Final Project</title>
+
+    <link href="resources/bootstrap.min.css" rel="stylesheet">
+    <link href="resources/offcanvas.css" rel="stylesheet">
+    <link href="resources/custom2014.css" rel="stylesheet">
+    <link href="resources/twentytwenty.css" rel="stylesheet" type="text/css" />
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</head>
+
+<body>
+
+<div class="container headerBar">
+		<h1>Final Project - Patrick Louis Aldover</h1>
+</div>
+
+<div class="container contentWrapper">
+<div class="pageContent">
+
+	<!-- ================================================================= -->
+
+	<h2>Motivational Image</h2>
+    <img src="images/motivation.jpg" alt="Motivational Image"/> 
+    <p>Image Reference: <a href="https://ryanericsongcanlas.wordpress.com/2010/03/10/feeling-out-of-place-sometimes/">https://ryanericsongcanlas.wordpress.com/2010/03/10/feeling-out-of-place-sometimes/</a></p>
+    <p>For this project our given theme is "Out of place". This image represents a person seeming to be "out of place". 
+      To illustrate this properly, this individual will be represented differently compared to its surroundings. 
+      It can be interpreted in various ways: Either the individual itself feels out of place, or it wants to stand out by doing/being 
+      something which seems unusual to others.</p>
+    <h2>Features (60 points)</h2>
+    
+    <h3>Disney BSDF (15 points)</h3>
+    <p><b>Files modified:</b><code>disney.cpp</code>, <code>warp.cpp</code>, <code>warp.h</code>, <code>warptest.cpp</code></p>
+    <p>To implement the Disney BSDF I referred to a <a href="https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf">paper from Brent Burley</a>, 
+        <a href="https://cseweb.ucsd.edu/~tzli/cse272/homework1.pdf"> a homework description</a>, and the 
+        <a href="https://github.com/wdas/brdf">Disney BRDF Explorer</a>. This feature took up the a very long time to implement.</p>
+    <p>The <code>eval</code> method of the Disney BSDF consists of several parts. 
+        The resulting color of the <code>eval</code> method depends on multiple factors.
+        As stated on the project proposal, I wanted to implement the metallic, specular + specularTint, 
+        roughness, clearcoat + clearcoatGloss, and sheen + sheenTint.</p>
+    <p>The diffuse color can be computed as follows: </p>
+$$
+f_{diffuse} = (1 - subsurface) \cdot f_{basediffuse} + subsurface \cdot f_{basesubsurface} \\
+f_{basediffuse} = \frac{baseColor}{\pi} F_D(\omega_i)F_D(\omega_o) \\
+F_D(\omega) = (1 + (F_{D90} - 1)(1 - | n \cdot \omega |)^5) \\
+F_{D90} = 0.5 + 2 \cdot roughness \cdot |h \cdot \omega_o|^2 
+$$ 
+    <p>Note that <script type="math/tex" id="MathJax-Element-23">h = \frac{\omega_i + \omega_o}{||\omega_i + \omega_o||}</script> 
+        and <script type="math/tex" id="MathJax-Element-23">| n \cdot \omega | = \cos \theta</script> from the local frame. Since I'm not implementing the subsurface parameter, I'm using the default (hardcoded) subsurface value of 0, 
+        meaning that <script type="math/tex" id="MathJax-Element-23">subsurface \cdot f_{basesubsurface} = 0</script>.</p>
+    <p>The specular term on the other hand is given as follows:</p>
+$$
+f_{specular} = {F_s \cdot D_s \cdot G_s} \\
+F_s = C_0 + (1 - C_0) (1 - (h \cdot w_o))^5 \qquad
+C_0 = specular \cdot R_0(\eta) (1 - metallic) K_s + metallic \cdot baseColor \\
+K_s = (1 - specularTint) + specularTint \cdot Ctint \qquad
+Ctint = \begin{cases} \frac{baseColor}{luminance(baseColor)} & \text{if luminance } > 0 \\ 1 & \text{otherwise}\end{cases} \\
+D_s = GTR2_{pdf}(\alpha_x)\\
+G_s = G(\omega_i) G(\omega_o) \\
+G(\omega) = \frac{1}{\omega_z^l + \sqrt{(w_x^l \cdot \alpha_x)^2 + (w_y^l \cdot \alpha_y)^2 + (w_z^l)^2}} \\
+\alpha_x = max(0.001, \frac{roughness^2}{aspect} ) \qquad \alpha_x = max(0.001, roughness^2 \cdot aspect ) \\
+aspect = \sqrt{1 - 0.9 \cdot anisotropic}
+$$
+    <p>Since I'm not implementing the anisotropic parameter, I'm using the default (hardcoded) anisotropic value of 0, 
+        meaning that <script type="math/tex" id="MathJax-Element-23">aspect = 1</script> and 
+        <script type="math/tex" id="MathJax-Element-23">\alpha_x = \alpha_y</script>. 
+        The <a href="https://github.com/wdas/brdf">Disney BRDF Explorer</a> uses a hardcoded 
+        value of <script type="math/tex" id="MathJax-Element-23">0.08</script> for 
+        <script type="math/tex" id="MathJax-Element-23">R_0(\eta)</script>.</p>
+    <p>Clearcoat and clearcoat gloss  can be used as follows:</p>
+$$
+f_{clearcoat} = F_c \cdot D_c \cdot G_c \\
+F_c = R_0(\eta = 1.5) + (1 - R_0(\eta = 1.5)) (1 - |h \cdot \omega_o|)^5 \qquad 
+R_0(\eta) = \left(\frac{\eta - 1}{\eta + 1}\right)^2 \\
+D_c = GTR1_{pdf}(\alpha_g) \qquad \alpha_g = (1 - clearcoatGloss) \cdot 0.1 + clearcoatGloss \cdot 0.001\\
+G_c = G_c(\omega_i) G_c(\omega_o) \\
+G_c(\omega) =  \frac{1}{\omega_z^l + \sqrt{0.25^2 + (\omega_z^l)^2 - (0.25 \cdot \omega_z^l)^2 }}$$
+    <p>The sheen and the sheen tint parameter is used as follows:</p>
+$$
+f_{sheen} = C_{sheen} (1 - |h \cdot \omega_o|)^5 \\
+C_{sheen} = (1 - sheenTint) + sheenTint \cdot C_{tint}
+$$
+    <p>The 2 GTR functions were mentioned in the
+        <a href="https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf">paper from Brent Burley</a>.
+        They are defined as follows:
+    </p>
+$$
+GTR1(\alpha)_{pdf} = \frac{\alpha^2 - 1}{\pi \log \alpha^2 (1 + (\alpha^2 - 1) \cos^2 \theta_h)} \quad \cos \theta_h = \sqrt{\frac{1 - (\alpha^2)^{1 - \xi_2}}{1 - \alpha^2}}\\
+GTR2(\alpha)_{pdf} = \frac{\alpha^2}{\pi  (1 + (\alpha^2 - 1) \cos^2 \theta_h)^2}  \quad \cos \theta_h = \sqrt{\frac{1 - \xi_2}{1 + (\alpha^2 - 1)\xi_2}}
+$$
+    <p>Finally, the <code>eval</code> method returns the following:</p>
+$$
+f = (1 - metallic) \cdot (f_{diffuse} + f_{sheen} \cdot sheen) + f_{specular} + 0.25 \cdot clearcoat \cdot f_{clearcoat}
+$$  
+<!--diffuse * cosThetaO * INV_PI 
+               + (1.f - diffuse) * (GTR2 * Warp::squareToGTR2Pdf(wh, alpha)  +
+                                    (1.f - GTR2) * Warp::squareToGTR1Pdf(wh, mix(m_clearcoatGloss, .1f, .001f))) * Jh * cosThetaH-->
+    <p>For the <code>pdf</code> method I did a similar approach to <code>microfacet.cpp</code>.
+    </p>
+$$
+pdf = diffuse \frac{\cos \theta_o}{\pi} + (1 - diffuse)  \cdot Jh \cdot \cos \theta_h \cdot \left( GTR2 \cdot GTR2_{pdf}(\alpha) + (1 - GTR2) \cdot GTR1_{pdf}(\alpha_g) \right)\\
+diffuse = (1 - metallic) \cdot 0.5 \quad GTR2 = \frac{1}{1 + clearcoat}
+$$
+    <p>For the <code>sample</code> method I did a similar approach to <code>microfacet.cpp</code>:
+    </p>
+    <ul>
+        <li>diffuse: cosine hemisphere sampling</li>
+        <li>clearcoat: GTR2 sampling <script type="math/tex" id="MathJax-Element-23">(\sin \theta \cos \phi, \sin \theta \sin \phi, \cos \theta)</script> where <script type="math/tex" id="MathJax-Element-23">\phi = 2 \pi \xi_1</script> and <script type="math/tex" id="MathJax-Element-23">\theta = \arccos \sqrt{\frac{1 - \xi_2}{1 + (\alpha^2 - 1)\xi_2}}</script></li>
+        <li>otherwise: GTR1 sampling <script type="math/tex" id="MathJax-Element-23">(\sin \theta \cos \phi, \sin \theta \sin \phi, \cos \theta)</script> where <script type="math/tex" id="MathJax-Element-23">\phi = 2 \pi \xi_1</script> and <script type="math/tex" id="MathJax-Element-23">\theta = \arccos \sqrt{\frac{1 - (\alpha^2)^{1 - \xi_2}}{1 - \alpha^2}}</script></li>
+      </ul>
+    
+      <h4>Validation</h4>
+      <p>For validation I used Mitsuba 3. To verify, I've kept all but one parameter constant.</p>
+    <h5>Mine (metallic, specular, specularTint, roughness, clearcoat, clearcoatGloss, sheen, sheenTint):</h5>
+      <img src="images/disney/disney-metallic-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-metallic-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney/disney-specular-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specular-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney/disney-specularTint-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-specularTint-1.0.png" alt="Mine" width="90px">
+    
+    <img src="images/disney/disney-roughness-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-roughness-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney/disney-clearcoat-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoat-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney/disney-clearcoatGloss-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-clearcoatGloss-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney/disney-sheen-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheen-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney/disney-sheenTint-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney/disney-sheenTint-1.0.png" alt="Mine" width="90px"> <br>
+
+
+    <h5>Mitsuba (metallic, specular, specularTint, roughness, clearcoat, clearcoatGloss, sheen, sheenTint):</h5>
+    <img src="images/disney-ref/disney-metallic-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-metallic-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney-ref/disney-specular-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-specular-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney-ref/disney-spec_tint-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-spec_tint-1.0.png" alt="Mine" width="90px">
+    
+    <img src="images/disney-ref/disney-roughness-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-roughness-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney-ref/disney-clearcoat-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-clearcoat_gloss-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney-ref/disney-sheen-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen-1.0.png" alt="Mine" width="90px">
+
+    <img src="images/disney-ref/disney-sheen_tint-0.0.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.1.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.3.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.2.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.4.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.5.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.6.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.7.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.8.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-0.9.png" alt="Mine" width="90px">
+    <img src="images/disney-ref/disney-sheen_tint-1.0.png" alt="Mine" width="90px">
+    <br><br><br><br>
+    <p>I implemented the GTR functions in <code>warp.cpp</code> to verify them:</p>
+    
+    <h5>GTR1:</h5>
+    <img src="images/GTR1.png" alt="Mine">
+    <img src="images/GTR1test.png" alt="Mine">
+    <h5>GTR2:</h5>
+    <img src="images/GTR2.png" alt="Mine">
+    <img src="images/GTR2test.png" alt="Mine">
+    
+    <h3>Depth of Field (Advanced Camera Model (15 points))</h3>
+    <p><b>Files modified:</b><code>perspective.cpp</code></p>
+    <p>The depth of field can be described as a certain part of a specified distance that 
+        is in-focus. For this feature I referred to the Mitsuba 3 implementation. To implement this we need 2 parameters: the focus distance and the 
+        aperture radius.</p>
+    <p>First we get a sample to obtain the aperture point. This aperture point will then be 
+        set as the origin of the sampled ray. Then, given the corresponding position on the 
+        near plane and the focus distance, we can compute the focal length, which will then 
+        be used to compure the focus point. Finally, we can compute the direction of the ray 
+        by normalizing the difference between the focus point and the aperture point.</p>
+
+    <h4>Validation</h4>
+    <p>For validation, I will use Mitsuba 3 and compare their results. As seen below, the 
+        images I rendered and the images of Mitsuba 3 are identical. I will use the following
+        image for validation:</p>
+    <img src="images/depth-of-field-default.png" alt="Mine">
+    
+
+    <p>The first three comparisons show the effect of changing the focus distance. The larger 
+        the focus distance is, the further the focused object is. The smaller the focus 
+        distance is, the closer the focused object is.</p>
+    <h5>Focus Distance = 10, Aperture Radius = 0.8 (512 samples per pixel):</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/depth-of-field_10_08.png" alt="Mine" class="img-responsive">
+	    <img src="images/depth-of-field-ref_10_08.png" alt="Reference" class="img-responsive">
+	</div> 
+    <h5>Focus Distance = 13, Aperture Radius = 0.8 (512 samples per pixel):</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/depth-of-field_13_08.png" alt="Mine" class="img-responsive">
+	    <img src="images/depth-of-field-ref_13_08.png" alt="Reference" class="img-responsive">
+	</div> 
+    <h5>Focus Distance = 16, Aperture Radius = 0.8 (512 samples per pixel):</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/depth-of-field_16_08.png" alt="Mine" class="img-responsive">
+	    <img src="images/depth-of-field-ref_16_08.png" alt="Reference" class="img-responsive">
+	</div> <br>
+    <p>Now let's change the aperture radius instead of the focus distance. A smaller aperture 
+        radius leads to a wider range of objects being in focus. A larger aperture radius leads 
+        to a smaller range of objects being in focus.</p>
+    <h5>Focus Distance = 10, Aperture Radius = 0.2 (512 samples per pixel)</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/depth-of-field_10_02.png" alt="Mine" class="img-responsive">
+	    <img src="images/depth-of-field-ref_10_02.png" alt="Reference" class="img-responsive">
+	</div> 
+    <h5>Focus Distance = 13, Aperture Radius = 0.2 (512 samples per pixel)</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/depth-of-field_13_02.png" alt="Mine" class="img-responsive">
+	    <img src="images/depth-of-field-ref_13_02.png" alt="Reference" class="img-responsive">
+	</div> 
+    <h5>Focus Distance = 16, Aperture Radius = 0.2 (512 samples per pixel)</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/depth-of-field_16_02.png" alt="Mine" class="img-responsive">
+	    <img src="images/depth-of-field-ref_16_02.png" alt="Reference" class="img-responsive">
+	</div> <br>
+
+
+
+
+
+    <h3>Lens Distortion (Advanced Camera Model (15 points))</h3>
+    <p><b>Files modified:</b><code>perspective.cpp</code></p>
+    <p>For lens distortion I referred to the Mitsuba 1 implementation. We can compute the 
+        distortion by modifying the corresponding position on the near plane by using 
+        <code>m_kc1</code> and <code>m_kc2</code>. 
+        <code>m_kc1</code> is the second-order coefficient and <code>m_kc2</code> is the 
+        fourth-order coefficient of a polynomial radial distortion model. The computed 
+        correction factor will then be multiplied to the corresponding position on the 
+        near plane.</p>
+$$
+nearP = nearP \cdot \frac{r}{l} \\
+l = \sqrt{\left(\frac{nearP_x}{nearP_z}\right)^2 +  \left(\frac{nearP_y}{nearP_z}\right)^2} \\
+r_0 = l \\
+r_i = r_{i - 1} - \frac{f_{i - 1}}{f_{i - 1}'} \\
+f_i = r_i \cdot (1 + r_i^2 \cdot (kc_1 + kc_2 \cdot r_i^2)) - l \\
+f_i' = 1 + r_i^2 \cdot (3 \cdot kc_1 + 5 \cdot kc_2 \cdot r_i^2) \\
+\text{for } i \in [0, 4] \; (\text{early termination if } |f| &lt; \epsilon)
+$$
+    <h4>Validation</h4>
+    <p>For validation I planned on using Mitsuba 1. However due to compilation issues, we 
+        have to verify it by observing the images. When both coefficients are positive, we 
+        expect a pincushion distortion. When both coefficients are negative, we expect a 
+        barrel distortion. This is the case for both images.</p>
+        <h5>kc1 = 3, kc2 = 3 (512 samples per pixel)</h5>
+        <div class="twentytwenty-container">
+            <img src="images/chromatic-aberration-off.png" alt="Off" class="img-responsive">
+            <img src="images/lens-distortion-3.png" alt="On" class="img-responsive">
+        </div>
+        <h5>kc1 = -1.25, kc2 = -1.25 (512 samples per pixel)</h5>
+        <div class="twentytwenty-container">
+            <img src="images/chromatic-aberration-off.png" alt="Off" class="img-responsive">
+            <img src="images/lens-distortion--1.png" alt="On" class="img-responsive">
+        </div>
+
+    <h3>Chromatic Aberrations (Advanced Camera Model (15 points))</h3>
+    <p><b>Files modified:</b><code>perspective.cpp</code></p>
+    <p>To indicate whether chromatic aberration is requested, I added a vector value in 
+        the .xml file. First, I take a closer look at the x-value of the aperture sample. If it is within 
+        <script type="math/tex" id="MathJax-Element-23">[0, \frac{1}{3}]</script>, we're sampling 
+        <script type="math/tex" id="MathJax-Element-23">(3x, y)</script> and are using an offset of 
+        <script type="math/tex" id="MathJax-Element-23">-0.1</script>. If it is within 
+        <script type="math/tex" id="MathJax-Element-23">[\frac{1}{3}, \frac{2}{3}]</script>, we're sampling 
+        <script type="math/tex" id="MathJax-Element-23">(3x - 1, y)</script> and we don't perform a shift. 
+        Otherwise we're sampling 
+        <script type="math/tex" id="MathJax-Element-23">(3x - 2, y)</script> and are using an offset of 
+        <script type="math/tex" id="MathJax-Element-23">0.1</script>. Since I'm only looking at 
+        <script type="math/tex" id="MathJax-Element-23">\frac{1}{3}</script> of x, I need to return 
+        <code>Color3f(3, 0, 0)</code>, <code>Color3f(0, 3, 0)</code>, or <code>Color3f(0, 0, 3)</code>, 
+        which depends on the x-value of the aperture sample, in the <code>sampleRay</code> function.</p>
+    <p>The depth of field functionality has been modified slightly as well. 
+        When rendering chromatic aberration we use the given offset and sample to 
+        shift the direction accordingly The new direction can be set as follows:
+    </p>
+$$
+d = \frac{p_{focus} + p_{offset} \cdot aberration - p_{aperture}}{||p_{focus} + p_{offset} \cdot aberration - p_{aperture}||} \\
+p_{offset} = offset \cdot \frac{\sqrt{nearP_x^2 + nearP_y^2}}{|nearP_z|} 
+$$
+    <h4>Validation</h4>
+    <p>Unfortunately, neither Mitsuba nor PBRT support chromatic aberration and thus have to validate with the keen eye.
+        The chromatic aberration is clearly visible especially on the edges of the image. In the center of the image there 
+        shouldn't be any chromatic aberration, which is the indeed the case.  
+    </p>
+    <div class="twentytwenty-container">
+	    <img src="images/chromatic-aberration-default.png" alt="Off" class="img-responsive">
+	    <img src="images/chromatic-aberration-2.png" alt="Chrom. Ab.: 2" class="img-responsive">
+        <img src="images/chromatic-aberration-5.png" alt="Chrom. Ab.: 5" class="img-responsive">
+        <img src="images/chromatic-aberration-10.png" alt="Chrom. Ab.: 10" class="img-responsive">
+	</div>
+
+
+    <!--<script type="math/tex" id="MathJax-Element-23"></script>-->
+    <h3>Environmental Map Emitter (15 points)</h3>
+    <p><b>Files modified:</b><code>envmap.cpp</code></p>
+    <p>This is mainly for the background. Also, as mentioned in the exercise session, 
+        implementing the environmental map emitter is quite useful for validation, 
+        e.g. Disney BSDF.</p>
+    <p>To implement the environmental map emitter I referred to this 
+        <a href="https://web.cs.wpi.edu/~emmanuel/courses/cs563/S07/projects/envsample.pdf">
+            paper</a>. I used a bitmap  to store the .exr information. For this feature we 
+        need to keep track of 4 matrices: a PDF matrix 
+        <script type="math/tex" id="MathJax-Element-23">M_{PDF} \in n \times m</script>, 
+        CDF matrix <script type="math/tex" id="MathJax-Element-23">M_{CDF} \in n \times m + 1</script>, 
+        marginal density matrix <script type="math/tex" id="MathJax-Element-23">M_{marg} \in 1 \times n</script>, 
+        and a conditional density matrix <script type="math/tex" id="MathJax-Element-23">M_{cond} \in 1 \times n + 1</script> 
+        (<script type="math/tex" id="MathJax-Element-23">n</script>: # rows, <script type="math/tex" id="MathJax-Element-23">m</script>: # cols).
+        According to the paper we first need to perform a precomputation as shown below. To do so, we 
+        first need to define a luminance matrix <script type="math/tex" id="MathJax-Element-23">
+        M_{lum} \in n \times m</script>. When initializing the <script type="math/tex" id="MathJax-Element-23">
+        M_{lum}</script> we have to add a small error <script type="math/tex" id="MathJax-Element-23">\epsilon</script>.
+    </p>
+    <p>After initializing the <script type="math/tex" id="MathJax-Element-23">M_{lum}</script>
+        we can start the 2D precomputation (as shown below). We basically precompute the 
+        conditional densities and use those densities to precompute the marginal densities.
+        The 1D precomputation function is used to precompute the PDF and CDF for a 1D function.
+        Compared to the paper, I instantly return the computed intensity to avoid the extra 
+        computation of the intensity in the 2D precomputation.
+    </p>
+    <p>The <code>eval</code> method of my environmental map emitter is basically performing 
+        a <a href="https://en.wikipedia.org/wiki/Bilinear_interpolation#Repeated_linear_interpolation">
+        bilinear interpolation</a>. Given a <code>EmitterQueryRecord</code>, we can get the direction 
+        <script type="math/tex" id="MathJax-Element-23">d</script> and the corresponding spherical coordinates 
+        <script type="math/tex" id="MathJax-Element-23">(\theta, \phi)</script>. We can then compute the 
+        corresponding <script type="math/tex" id="MathJax-Element-23">(u, v)</script> coordinates to finally 
+        perform bilinear interpolation. 
+    </p>
+    $$
+    \frac{1}{(u_2 - u_1)(v_2 - v_1)} (Q_{11}(u_2 - u)(v_2 - v) + Q_{21}(u - u_1)(v_2 - v) + Q_{11}(u_2 - u)(v - v_1) + Q_{11}(u - u_1)(v - v_1)) \\
+    \text{where} \\
+    u_1 = \lfloor u \rfloor,\; u_2 = u_1 + 1, \; v_1 = \lfloor v \rfloor,\; v_2 = v_1 + 1 \\
+    Q_{ij} = \begin{cases}bitmap(u_i, v_j) & u_i \in [0, n] \land v_j \in [0, m] \\ 0 & \text{otherwise}\end{cases} \quad (i, j \in [1, 2]) \\
+    \Rightarrow Q_{11}(u_2 - u)(v_2 - v) + Q_{21}(u - u_1)(v_2 - v) + Q_{11}(u_2 - u)(v - v_1) + Q_{11}(u - u_1)(v - v_1)
+    $$
+    <p>The <code>pdf</code> method seems straightforward. Given a <code>EmitterQueryRecord</code>, 
+        we can get the direction <script type="math/tex" id="MathJax-Element-23">d</script> and the 
+        corresponding spherical coordinates <script type="math/tex" id="MathJax-Element-23">(\theta, \phi)</script>. 
+        We can then compute the corresponding <script type="math/tex" id="MathJax-Element-23">(u, v)</script> 
+        coordinates and return <script type="math/tex" id="MathJax-Element-23">M_{marg}(0, u) \cdot M_{PDF}(u, v)</script>.</p>
+    <p>For the <code>sample</code> method I referred to the paper's pseudocode as well. 
+        The 1D sampling method transforms a uniform random variable to a sample 
+        <script type="math/tex" id="MathJax-Element-23">x</script> from the distribution by using binary search.
+        The <code>sample</code> method in the environmental map emitter then uses this 1D sampling method
+        to obtain <script type="math/tex" id="MathJax-Element-23">(u, v)</script> coordinates. These 
+        <script type="math/tex" id="MathJax-Element-23">(u, v)</script> coordinates will be converted to 
+        <script type="math/tex" id="MathJax-Element-23">(\theta, \phi)</script> coordinates to define a direction 
+        <script type="math/tex" id="MathJax-Element-23">\omega_i</script>. Finally, we can return a valid sample 
+        by dividing the result of the <code>eval</code> method by the following (also mentioned in the paper):  
+        <script type="math/tex" id="MathJax-Element-23">pdf \frac{(n - 1) (m - 1)}{2 \pi^2 \sin\theta_i}</script>.
+    </p>
+    <h4>Validation</h4>
+    <p>For validation, I will use Mitsuba 3 and compare their results. As seen below, the 
+        images I rendered and the images of Mitsuba 3 are identical (apart from the small artifacts).</p>
+    <div class="twentytwenty-container">
+	    <img src="images/envmap.png" alt="Mine" class="img-responsive">
+	    <img src="images/envmap-ref.png" alt="Reference" class="img-responsive">
+	</div>
+
+
+
+
+    <h3>Image Textures (5 points)</h3>
+    <p><b>Files modified:</b><code>image_texture.cpp</code>, <code>emitter.h</code>, 
+        <code>direct.cpp</code>, <code>direct_ems.cpp</code>, <code>direct_mats.cpp</code>, 
+        <code>direct_mis.cpp</code>, <code>path_mats.cpp</code>, <code>path_mis.cpp</code>, <code>sphere.cpp</code></p>
+    <p>My goal with this feature is to display image textures on a few objects or individuals.</p>
+    <p>To display the image textures I used a library called <code>lodepng</code>. 
+        This library allows to turn a .png image into a vector of RGBA values. 
+        When reading the image data, I had to perform a inverse gamma correction to get the expected colors. 
+        To display the image values, I had to modify the <code>EmitterQueryRecord</code> and 
+        consequently all integrators that used an <code>EmitterQueryRecord</code>. Now, the 
+        uv-coordinates of any <code>EmitterQueryRecord</code> will be set to the uv-coordinates 
+        of an intersection. This feature works for objects with uv-information.</p>
+    <h4>Validation</h4>
+    <p>For validation I simply display different image textures on a sphere with an environmental 
+        map emitter. As shown below, I can display an image texture on 
+        an object. Also, when comparing the images via tev, I get an absolute error of 0.</p>
+    <div class="twentytwenty-container">
+	    <img src="images/image-textures-aerial.png" alt="Mine" class="img-responsive">
+	    <img src="images/image-textures-ref-aerial.png" alt="Reference" class="img-responsive">
+	</div>
+    <div class="twentytwenty-container">
+	    <img src="images/image-textures-fabric.png" alt="Mine" class="img-responsive">
+	    <img src="images/image-textures-ref-fabric.png" alt="Reference" class="img-responsive">
+	</div>
+    <div class="twentytwenty-container">
+	    <img src="images/image-textures-rocks.png" alt="Mine" class="img-responsive">
+	    <img src="images/image-textures-ref-rocks.png" alt="Reference" class="img-responsive">
+	</div>
+    
+    
+    <h3>Textured Area Emitters (5 points)</h3>
+    <p><b>Files modified:</b><code>texturedarealight.cpp</code>, <code>image_texture.cpp</code></p>
+    <p>To make certain individuals unique and clearly visible, I implemented textured area 
+        emitters and use it for those individuals only.</p>
+    <p>I simply created the <code>texturedarealight.cpp</code> file to implement textured area emitters. 
+        Instead of using <code>Color3f m_radiance</code> I used 
+        <code>Texture&lt;Color3f&gt;* m_radiance</code>. Additionally, in the <code>eval()</code>  
+        method of the area emitter I returned <code>m_radiance->eval(lRec.uv)</code> to evaluate 
+        the image texture. The <code>eval()</code> method of the <code>image_texture.cpp</code>  will then return 
+        the RGB value of the pixel scaled with the radiance.</p>
+    <h5>Radiance = 1 (512 samples per pixel)</h5>
+	<div class="twentytwenty-container">
+	    <img src="images/textured-area-emitter-default.png" alt="Mine" class="img-responsive">
+	    <img src="images/textured-area-emitter-ref-default.png" alt="Reference" class="img-responsive">
+	</div> <br>
+    <p>For some odd reason, the image textures are displayed slightly differently 
+        (even though I can display the image textures properly as seen in the "Image Texture" feature.). 
+        However, the textured area emitters themselves do brighten the box accordingly. 
+        With tev I confirmed that the absolute error between those 2 images is 0.
+    </p>
+    <p>One issue that Mitsuba 3 has is that is always uses a radiance of 1. </p>
+    <h5>Different Radiances (512 samples per pixel)</h5>
+    <img src="images/textured-area-emitter-increased.png" alt="Mine" class="img-responsive">
+    
+    
+    
+    <h3>Model Your Own Mesh (5 points)</h3>
+    <p><b>Files modified:</b><code>person-*.obj</code></p>
+    <p>I will create my own mesh for the persons. To model the characters, I will follow 
+        <a href="https://www.youtube.com/watch?v=IhIGVO4fqLg">this tutorial</a> and modify the mesh accordingly.</p>
+    <p>You can see my modelled mesh below. To model my mesh I used image templates (as it 
+        was illustrated in the tutorial), which you can see below. </p>
+    <img src="images/Front.png" alt="Mine" width="30%">
+    <img src="images/Side.png" alt="Mine" width="30%">
+    <img src="images/Top.png" alt="Mine" width="30%">
+    <br><br><br><br>
+    <p>After a few hours I ended up with the following mesh:</p>
+    <img src="images/mesh-overview.png" alt="Mine" width="60%">
+    <br><br><br><br>
+    <p>As shown below, when comparing my mesh to the templates, they are slightly different
+         since halfway through my modeling process I did a few parts without following the tutorial.</p>
+    <img src="images/mesh-front.png" alt="Mine" width="80%">
+    <img src="images/mesh-side.png" alt="Mine" width="80%">
+    <img src="images/mesh-top.png" alt="Mine" width="80%">
+    <br><br><br><br>
+    <p>Furthermore, I added an armature to the mesh and created several mesh objects, where each mesh has a differently positioned armature.</p>
+    <img src="images/mesh-armature.png" alt="Mine" width="80%">
+    <br><br><br><br>
+    <p>Finally, I exported the meshes as .obj files to render them in Nori.</p>
+    <img src="images/model-own-mesh.png" alt="Mine" >
+    <br><br><br><br>
+    <h2>Potential Final Image Preview</h2>
+    <img src="images/preview.png" alt="Preview"/> <br> <br> <br> <br>
+    <h2>Final Image</h2>
+    <img src="images/final-image.png" alt="Preview" width="90%"/>
+</div>
+</div>
+
+
+<!-- Bootstrap core JavaScript -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script src="resources/bootstrap.min.js"></script>
+<script src="resources/jquery.event.move.js"></script>
+<script src="resources/jquery.twentytwenty.js"></script>
+
+
+<script>
+$(window).load(function(){$(".twentytwenty-container").twentytwenty({default_offset_pct: 0.5});});
+</script>
+
+</body>
+</html>
